@@ -1,0 +1,17 @@
+edge-tts
+pygame
+dotenv
+
+groq
+sounddevice
+soundfile
+
+Langchain
+Langchain-core
+Langchain-community
+Langchain-google-genai
+google-generativeai
+
+langgraph
+langgraph-checkpoint-postgres
+psycopg [binary,pool]
