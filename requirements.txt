@@ -15,3 +15,6 @@ google-generativeai
 langgraph
 langgraph-checkpoint-postgres
 psycopg [binary,pool]
+
+tavily-python
+langsmith

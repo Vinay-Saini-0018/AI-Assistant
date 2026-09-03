@@ -1,16 +1,16 @@
 
 
-from core.models import model,memory_model
+from core.models import ToolModel,memory_model,model
 from core.state import graphstate
 from langgraph.store.base import BaseStore
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import RemoveMessage, SystemMessage
+from langchain_core.messages import AIMessage, RemoveMessage, SystemMessage,HumanMessage,ToolMessage
 import uuid
 from core import prompts
 from core.models import MemoryDecision
 from langgraph.config import get_stream_writer
-from langchain.messages import AIMessage
-
+from langgraph.prebuilt import ToolNode
+from core.models import tools
 
 
 
@@ -22,11 +22,19 @@ def summarize_chat(state = graphstate):
     if len(messages) < 10:
         return {}
 
-    # old messages
-    old_messages = messages[:-4]
+    # Find the latest user message
+    latest_user_index = max(
+        index
+        for index, message in enumerate(messages)
+        if isinstance(message, HumanMessage)
+    )
 
-    # latest 4 messages
-    recent_messages = messages[-4:]
+    # Only summarize messages before the latest user message
+    old_messages = messages[:latest_user_index]
+
+    if not old_messages:
+        return {}
+
 
     summary = state.get('summary', "")
     if summary:
@@ -39,13 +47,12 @@ def summarize_chat(state = graphstate):
     respone = model.invoke(prompt)
 
     # deleting old messages 
-    delete_old = [RemoveMessage(id=message.id) for message in old_messages]
+    delete_old = [RemoveMessage(id=message.id) for message in old_messages if getattr(message, 'id', None)]
 
     return {
         'messages' : delete_old,
         'summary' : respone.content
-    }
-
+    } 
 
 
 
@@ -63,14 +70,16 @@ def Store_LTM(state : graphstate, config = RunnableConfig, store = BaseStore):
         existing = " "
 
     last_msg = state['messages'][-1].content
+    if isinstance(last_msg, list):
+        last_msg = " ".join(part.get("text", "") for part in last_msg if isinstance(part, dict))
 
     # checking for the last msg we have to store or not.. Here we use MemoryDecision structure 
     decision : MemoryDecision = memory_model.invoke(
         [SystemMessage(content = prompts.MEMORY_PROMPT.format(user_details_content=existing)),
-         {'role':'user','content': last_msg}]
+         HumanMessage(content = str(last_msg))]
     )
 
-    if decision.should_write:
+    if decision and decision.should_write:
         for mem in decision.memories:
             if mem.is_new and mem.text.strip():
                 store.put(ns, str(uuid.uuid4()),{'data':mem.text.strip()})
@@ -93,6 +102,7 @@ def ChatNode(state : graphstate, config : RunnableConfig, store : BaseStore):
     else:
         user_details = ' '
 
+
     last_msgs = state['messages']
     summary = state.get('summary','')
 
@@ -108,11 +118,48 @@ def ChatNode(state : graphstate, config : RunnableConfig, store : BaseStore):
 
     final_result = ""
 
-    # Streaming
-    for chunk in model.stream(query):
-        chunk = chunk.content
-        writer(chunk)
-        if chunk and chunk[0].get('text'):
-            final_result += chunk[0]['text']
+    full_response = None
 
-    return {"messages": AIMessage(content = final_result)}
+
+    # Streaming
+    for chunk in ToolModel.stream(query):
+        full_response = chunk if full_response is None else full_response + chunk
+
+        chunk = chunk.content
+        if isinstance(chunk, list):
+            text = "".join(
+                    part.get("text", "")
+                    for part in chunk
+                    if isinstance(part, dict)
+                )
+        elif isinstance(chunk, str):
+            text = chunk
+        else:
+            text = ""
+
+        if text:
+            writer(text)
+            final_result += text
+
+        
+
+    if full_response is None:
+        return {"messages": [AIMessage(content=final_result)]}
+
+    return {
+        "messages": [full_response]
+    }
+
+
+### ----------- Node 4 (Tool Node) ---------- ###
+tool_node = ToolNode(tools)
+
+
+### --------- Node 5 (ToolDecision) ---------- ###
+def should_use_tool(state: graphstate) -> str:
+    last_message = state["messages"][-1]
+    
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "use_tool"   # → go to tool_node
+    
+    return "end"  
