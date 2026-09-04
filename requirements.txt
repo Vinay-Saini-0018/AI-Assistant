@@ -18,3 +18,5 @@ psycopg [binary,pool]
 
 tavily-python
 langsmith
+fastapi
+uvicorn

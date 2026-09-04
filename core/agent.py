@@ -30,52 +30,99 @@ builder.add_conditional_edges("ChatNode",should_use_tool,
 builder.add_edge('tools','ChatNode')   # tool return result -> result go to ChatNode
 
 
-with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
-    checkpointer.setup()
 
-    with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
-        store.setup()
+# function which will take the query and return the answer
+def chat(query,ThreadId):
+    with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
+        checkpointer.setup()
 
-
-
-        graph = builder.compile(checkpointer = checkpointer,store = store)
-
-        config = {'configurable' : {'thread_id' : 'test-011','user_id' : 'u1'}}
-
-        while True:
-            query = input("\nquery : ")
-
-            if query == "0":
-                snapshot = graph.get_state(config)
-
-                summary = snapshot.values.get("summary", "")
-                messages = snapshot.values.get("messages", [])
-
-                print("\n\nComplete Conversation:")
-                print("Summary:", summary)
-
-                for message in messages:
-                    print(message.type, ":", message.content)
+        with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
+            store.setup()
 
 
-                # Getting Long term Memory
-                namespace = ("user",config["configurable"]["user_id"],"details")   # path of stored memory 
 
-                memories = store.search(namespace)   # searching in that stored path
+            graph = builder.compile(checkpointer = checkpointer,store = store)
 
-                print("\n\nLong-Term Memories:")
+            config = {'configurable' : {'thread_id' : ThreadId,'user_id' : 'u1'}}
 
-                for memory in memories:
-                    print("-", memory.value.get("data", ""))
+            '''while True:
+                query = input("\nquery : ")
+
+                if query == "0":
+                    snapshot = graph.get_state(config)
+
+                    summary = snapshot.values.get("summary", "")
+                    messages = snapshot.values.get("messages", [])
+
+                    print("\n\nComplete Conversation:")
+                    print("Summary:", summary)
+
+                    for message in messages:
+                        print(message.type, ":", message.content)
 
 
-                break
+                    # Getting Long term Memory
+                    namespace = ("user",config["configurable"]["user_id"],"details")   # path of stored memory 
+
+                    memories = store.search(namespace)   # searching in that stored path
+
+                    print("\n\nLong-Term Memories:")
+
+                    for memory in memories:
+                        print("-", memory.value.get("data", ""))
 
 
-            # testing
+                    break
+
+
+                # testing
+                data = {"messages" : [HumanMessage(content = query)]}
+
+                # this will run in all cases : if a chunk is empty because he not get data yet, at that time this will not throw the error
+                for chunk in graph.stream(data, stream_mode="custom", config = config):
+                    if chunk:
+                        print(chunk, end="", flush=True)'''
+
             data = {"messages" : [HumanMessage(content = query)]}
-
-            # this will run in all cases : if a chunk is empty because he not get data yet, at that time this will not throw the error
             for chunk in graph.stream(data, stream_mode="custom", config = config):
                 if chunk:
-                    print(chunk, end="", flush=True)
+                    yield chunk
+
+
+
+# function to load a particular thread
+def load_thread_history(thread_id):
+    with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
+            checkpointer.setup()
+    
+            with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
+                store.setup()
+    
+    
+    
+                graph = builder.compile(checkpointer = checkpointer,store = store)
+
+                config = {
+                    "configurable": {
+                        "thread_id": thread_id,
+                        "user_id": "u1"
+                    }
+                }
+
+                snapshot = graph.get_state(config)
+
+                values = snapshot.values
+
+                return {
+                    "thread_id": thread_id,
+                    "summary": values.get("summary", ""),
+                    "messages": [
+                        {
+                            "role": message.type,
+                            "content": message.content
+                        }
+                        for message in values.get("messages", [])
+                    ]
+                }
+
+
