@@ -31,98 +31,55 @@ builder.add_edge('tools','ChatNode')   # tool return result -> result go to Chat
 
 
 
-# function which will take the query and return the answer
-def chat(query,ThreadId):
-    with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
-        checkpointer.setup()
+# testing the application
+with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
+    checkpointer.setup()
 
-        with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
-            store.setup()
-
-
-
-            graph = builder.compile(checkpointer = checkpointer,store = store)
-
-            config = {'configurable' : {'thread_id' : ThreadId,'user_id' : 'u1'}}
-
-            '''while True:
-                query = input("\nquery : ")
-
-                if query == "0":
-                    snapshot = graph.get_state(config)
-
-                    summary = snapshot.values.get("summary", "")
-                    messages = snapshot.values.get("messages", [])
-
-                    print("\n\nComplete Conversation:")
-                    print("Summary:", summary)
-
-                    for message in messages:
-                        print(message.type, ":", message.content)
-
-
-                    # Getting Long term Memory
-                    namespace = ("user",config["configurable"]["user_id"],"details")   # path of stored memory 
-
-                    memories = store.search(namespace)   # searching in that stored path
-
-                    print("\n\nLong-Term Memories:")
-
-                    for memory in memories:
-                        print("-", memory.value.get("data", ""))
-
-
-                    break
-
-
-                # testing
-                data = {"messages" : [HumanMessage(content = query)]}
-
-                # this will run in all cases : if a chunk is empty because he not get data yet, at that time this will not throw the error
-                for chunk in graph.stream(data, stream_mode="custom", config = config):
-                    if chunk:
-                        print(chunk, end="", flush=True)'''
-
-            data = {"messages" : [HumanMessage(content = query)]}
-            for chunk in graph.stream(data, stream_mode="custom", config = config):
-                if chunk:
-                    yield chunk
+    with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
+        store.setup()
 
 
 
-# function to load a particular thread
-def load_thread_history(thread_id):
-    with PostgresSaver.from_conn_string(settings.DATABASE_URL) as checkpointer:
-            checkpointer.setup()
-    
-            with PostgresStore.from_conn_string(settings.DATABASE_URL) as store:
-                store.setup()
-    
-    
-    
-                graph = builder.compile(checkpointer = checkpointer,store = store)
+        graph = builder.compile(checkpointer = checkpointer,store = store)
 
-                config = {
-                    "configurable": {
-                        "thread_id": thread_id,
-                        "user_id": "u1"
-                    }
-                }
+        config = {'configurable' : {'thread_id' : "check-002",'user_id' : 'u1'}}
 
+        while True:
+            query = input("\nquery : ")
+
+            if query == "0":
                 snapshot = graph.get_state(config)
 
-                values = snapshot.values
+                summary = snapshot.values.get("summary", "")
+                messages = snapshot.values.get("messages", [])
 
-                return {
-                    "thread_id": thread_id,
-                    "summary": values.get("summary", ""),
-                    "messages": [
-                        {
-                            "role": message.type,
-                            "content": message.content
-                        }
-                        for message in values.get("messages", [])
-                    ]
-                }
+                print("\n\nComplete Conversation:")
+                print("Summary:", summary)
+
+                for message in messages:
+                    print(message.type, ":", message.content)
 
 
+                # Getting Long term Memory
+                namespace = ("user",config["configurable"]["user_id"],"details")   # path of stored memory 
+
+                memories = store.search(namespace)   # searching in that stored path
+
+                print("\n\nLong-Term Memories:")
+
+                for memory in memories:
+                    print("-", memory.value.get("data", ""))
+
+
+                break
+
+
+            # testing
+            data = {"messages" : [HumanMessage(content = query)]}
+            
+            # this will run in all cases : if a chunk is empty because he not get data yet, at that time this will not throw the error
+            for chunk in graph.stream(data, stream_mode="custom", config = config):
+                if chunk:
+                    print(chunk, end="", flush=True)
+
+            

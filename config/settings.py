@@ -11,7 +11,7 @@ GNews_API_KEY = os.getenv("GNEWS_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 STT_Model = "whisper-large-v3-turbo"
-ChatModel = "gemini-3.5-flash-lite"
+ChatModel = "gemini-3.6-flash"
 SpeakerVoice = "en-AU-WilliamNeural"
 
 Mp3_Fiels_Path = "./VoiceText/Mp3Files"

@@ -23,11 +23,5 @@ s5 : connect the node and edges in the graph
 
 s6 : If your database service shut down then then start that to go to the website 
 
-
-How to run:
-1. Run the backend where so that we can acces that apis
-uvicorn main:app --reload --port 8001
-
-Then you should have:
-Frontend → http://localhost:8000
-Backend  → http://127.0.0.1:8001
+s7 : how to run 
+ python -m core.agent
