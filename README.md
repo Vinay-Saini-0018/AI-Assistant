@@ -123,7 +123,8 @@ The core chatbot is implemented with LangGraph, short-term and long-term memory,
 
 ## Future Development
 
-The existing core logic is designed to be extended without rewriting the main agent. Most of the future changes will be made in `main.py` and `core/agent.py` files.
+The existing core logic is designed to be extended without rewriting the main agent. Most of the future changes will be made in `main.py` and `core/agent.py` files.while additional files may be added when required.
+
 The following features can be added:
 #### 1. FastAPI Backend
 
